@@ -8,3 +8,11 @@ export function useDashboardStats() {
     staleTime: 30000,
   });
 }
+
+export function usePartnerBriefing() {
+  return useQuery({
+    queryKey: ["dashboard", "partner-briefing"],
+    queryFn: dashboardApi.getPartnerBriefing,
+    staleTime: 5 * 60 * 1000,
+  });
+}

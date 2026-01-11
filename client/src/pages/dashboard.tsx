@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDashboardStats } from "@/hooks/use-dashboard";
+import { useDashboardStats, usePartnerBriefing } from "@/hooks/use-dashboard";
 import { useCases } from "@/hooks/use-cases";
 import { AlertCircle, ArrowUpRight, Clock, FileText, TrendingUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ const RECENT_DOCS = [
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: partnerBriefing, isLoading: partnerBriefingLoading, isError: partnerBriefingError } = usePartnerBriefing();
   const { data: cases, isLoading: casesLoading } = useCases();
 
   const urgentCases = cases?.filter((c: any) => 
@@ -102,6 +103,27 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Visão do Sócio</CardTitle>
+          <CardDescription>Briefing diário orientado por risco, dinheiro e operação.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {partnerBriefingLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Gerando briefing...
+            </div>
+          ) : partnerBriefingError ? (
+            <p className="text-sm text-destructive">Não foi possível gerar o briefing agora.</p>
+          ) : (
+            <div className="whitespace-pre-wrap text-sm text-foreground">
+              {partnerBriefing?.content || "Sem briefing disponível no momento."}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         {/* Urgencies List */}
