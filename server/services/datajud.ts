@@ -4,10 +4,17 @@ import type { InsertCaseMovement } from "@shared/schema";
 import { TRIBUNAIS_REGISTRY, parseCaseNumber, getTribunalBySigla, getAllTribunais, type TribunalInfo } from "./datajudRegistry";
 
 interface DatajudMovement {
-  data: string;
+  data?: string;
+  dataHora?: string;
   nome: string;
   codigo?: string;
   complemento?: string;
+  complementosTabelados?: Array<{
+    codigo?: number;
+    descricao?: string;
+    valor?: number;
+    nome?: string;
+  }>;
 }
 
 interface DatajudProcess {
@@ -18,6 +25,7 @@ interface DatajudProcess {
   dataAjuizamento?: string;
   movimentos?: DatajudMovement[];
   siglaTribunal?: string;
+  tribunal?: string;
   grau?: string;
 }
 
@@ -246,16 +254,25 @@ export class DatajudService {
   }
 
   async importProcess(caseId: number, processData: DatajudProcess): Promise<void> {
-    const movements: InsertCaseMovement[] = (processData.movimentos || []).map(mov => ({
-      caseId,
-      date: new Date(mov.data),
-      type: this.classifyMovementType(mov.nome),
-      description: mov.complemento ? `${mov.nome}: ${mov.complemento}` : mov.nome,
-      source: "DataJud",
-      datajudCode: mov.codigo,
-      datajudPayload: mov as any,
-      requiresAction: this.requiresAction(mov.nome),
-    }));
+    const movements: InsertCaseMovement[] = (processData.movimentos || [])
+      .map((mov) => {
+        const movementDate = this.parseMovementDate(mov);
+        if (!movementDate) return null;
+        const complemento = this.formatMovementComplementos(mov);
+        const description = complemento ? `${mov.nome}: ${complemento}` : mov.nome;
+
+        return {
+          caseId,
+          date: movementDate,
+          type: this.classifyMovementType(mov.nome),
+          description,
+          source: "DataJud",
+          datajudCode: mov.codigo,
+          datajudPayload: mov as any,
+          requiresAction: this.requiresAction(mov.nome),
+        };
+      })
+      .filter((movement): movement is InsertCaseMovement => movement !== null);
 
     if (movements.length > 0) {
       await storage.createCaseMovements(movements);
@@ -270,11 +287,12 @@ export class DatajudService {
       subject: processData.assuntos?.[0]?.nome,
     });
 
-    const tribunalInfo = getTribunalBySigla(processData.siglaTribunal || "");
+    const tribunalSigla = processData.tribunal || processData.siglaTribunal || "";
+    const tribunalInfo = getTribunalBySigla(tribunalSigla);
     await storage.createDatajudSyncLog({
       caseId,
       endpoint: tribunalInfo?.endpoint || "unknown",
-      tribunal: processData.siglaTribunal || "unknown",
+      tribunal: tribunalSigla || "unknown",
       requestPayload: { numeroProcesso: processData.numeroProcesso },
       responsePayloadHash: payloadHash,
       status: "success",
@@ -299,6 +317,23 @@ export class DatajudService {
            lower.includes("citação") || 
            lower.includes("citacao") ||
            lower.includes("prazo");
+  }
+
+  private parseMovementDate(movement: DatajudMovement): Date | null {
+    const rawDate = movement.dataHora || movement.data;
+    if (!rawDate) return null;
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  }
+
+  private formatMovementComplementos(movement: DatajudMovement): string | null {
+    if (movement.complemento) return movement.complemento;
+    if (!movement.complementosTabelados || movement.complementosTabelados.length === 0) return null;
+    return movement.complementosTabelados
+      .map((item) => item.nome || item.descricao || item.valor)
+      .filter((item) => item !== undefined && item !== null && String(item).trim() !== "")
+      .join(" • ");
   }
 }
 

@@ -27,6 +27,8 @@ export const dashboardApi = {
     monthlyBilling: string;
     newCasesThisMonth: number;
   }>("/dashboard/stats"),
+  getPartnerBriefing: () =>
+    fetchApi<{ content: string; citations: any[]; tokensUsed: number }>("/briefings/partner"),
 };
 
 // Clients

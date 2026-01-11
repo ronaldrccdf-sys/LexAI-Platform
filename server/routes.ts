@@ -412,6 +412,67 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== BRIEFINGS ====================
+  app.get("/api/briefings/partner", async (req: Request, res: Response) => {
+    try {
+      const tenantId = 1;
+      const now = new Date();
+
+      const [stats, urgentDeadlines, cases, invoices] = await Promise.all([
+        storage.getDashboardStats(tenantId),
+        storage.getUrgentDeadlines(tenantId, 3),
+        storage.getCasesByTenant(tenantId),
+        storage.getInvoicesByTenant(tenantId),
+      ]);
+
+      const highRiskCases = cases.filter((caseItem) => caseItem.riskLevel === "alto");
+      const activeCases = cases.filter((caseItem) => caseItem.status === "ativo");
+
+      const openInvoices = invoices.filter((invoice) => invoice.status !== "paga");
+      const overdueInvoices = openInvoices.filter((invoice) => invoice.dueDate && new Date(invoice.dueDate) < now);
+
+      const totalOpenAmount = openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+      const totalOverdueAmount = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+
+      const response = await aiService.generatePartnerBriefing({
+        stats,
+        urgentDeadlines: urgentDeadlines.map((deadline) => ({
+          title: deadline.title,
+          dueDate: deadline.dueDate?.toISOString?.() || "",
+          priority: deadline.priority,
+          status: deadline.status,
+        })),
+        casesSummary: {
+          highRisk: highRiskCases.length,
+          active: activeCases.length,
+          total: cases.length,
+        },
+        financeSummary: {
+          openInvoices: openInvoices.length,
+          overdueInvoices: overdueInvoices.length,
+          totalOpenAmount: totalOpenAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          totalOverdueAmount: totalOverdueAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        },
+      });
+
+      await storage.createAiGenerationLog({
+        tenantId,
+        userId: 1,
+        generationType: "briefing_socios",
+        prompt: "Briefing diário Visão do Sócio",
+        citations: response.citations as any,
+        modelUsed: "gpt-4o",
+        tokensUsed: response.tokensUsed,
+        outputPreview: response.content.substring(0, 500),
+      });
+
+      res.json(response);
+    } catch (error) {
+      console.error("Error generating partner briefing:", error);
+      res.status(500).json({ error: "Failed to generate partner briefing" });
+    }
+  });
+
   // ==================== AI / LEXAI STUDIO ====================
   app.post("/api/ai/chat", async (req: Request, res: Response) => {
     try {

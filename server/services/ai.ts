@@ -127,6 +127,50 @@ Forneça:
     return this.chat([{ role: "user", content: prompt }]);
   }
 
+  async generatePartnerBriefing(context: {
+    stats: {
+      urgentDeadlines: number;
+      activeCases: number;
+      monthlyBilling: string;
+      newCasesThisMonth: number;
+    };
+    urgentDeadlines: Array<{
+      title: string;
+      dueDate: string;
+      priority: string;
+      status: string;
+    }>;
+    casesSummary: {
+      highRisk: number;
+      active: number;
+      total: number;
+    };
+    financeSummary: {
+      openInvoices: number;
+      overdueInvoices: number;
+      totalOpenAmount: string;
+      totalOverdueAmount: string;
+    };
+  }): Promise<AiResponse> {
+    const prompt = `Crie o briefing diário "Visão do Sócio" com base nos dados abaixo.
+
+Siga exatamente esta ordem e formato:
+1. **Risco**: riscos imediatos e prazos críticos.
+2. **Dinheiro**: situação financeira, faturamento e inadimplência.
+3. **Operação**: volume de casos, produtividade e mudanças relevantes.
+4. **Conselho**: recomendações objetivas para hoje.
+
+Regras:
+- Seja direto, em português, com bullets curtos.
+- Não invente dados. Use apenas o contexto fornecido.
+- Se algum dado estiver vazio, indique "sem sinal relevante".
+
+Dados:
+${JSON.stringify(context, null, 2)}`;
+
+    return this.chat([{ role: "user", content: prompt }]);
+  }
+
   async extractDataFromDocument(documentContent: string, extractionType: "contract" | "procuration" | "petition"): Promise<Record<string, any>> {
     const prompts: Record<string, string> = {
       contract: `Extraia os seguintes dados do contrato:
