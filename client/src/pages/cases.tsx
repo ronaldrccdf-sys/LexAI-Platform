@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Filter, Download, MoreVertical, RefreshCw, CheckCircle2, FileText, Scale, Bot, Loader2, Sparkles } from "lucide-react";
 import { useCases, useCaseMovements, useDatajudSearch } from "@/hooks/use-cases";
 import { useGeneratePiece } from "@/hooks/use-ai";
@@ -37,6 +38,7 @@ export default function CasesPage() {
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [importNumber, setImportNumber] = useState("");
   const [datajudResult, setDatajudResult] = useState<any>(null);
+  const [datajudTermsAccepted, setDatajudTermsAccepted] = useState(false);
   const [generatePieceOpen, setGeneratePieceOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<any>(null);
   const [pieceType, setPieceType] = useState("Manifestação");
@@ -51,6 +53,16 @@ export default function CasesPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isConfirming, setIsConfirming] = useState(false);
+
+  const handleImportDialogChange = (open: boolean) => {
+    setIsImporting(open);
+    if (open) {
+      setImportStep("input");
+      setImportNumber("");
+      setDatajudResult(null);
+      setDatajudTermsAccepted(false);
+    }
+  };
 
   const handleImport = async () => {
     setImportStep("loading");
@@ -144,7 +156,7 @@ export default function CasesPage() {
           <p className="text-muted-foreground mt-1">Gestão processual integrada ao DataJud.</p>
         </div>
         <div className="flex gap-2 button-group-responsive">
-          <Dialog open={isImporting} onOpenChange={setIsImporting}>
+          <Dialog open={isImporting} onOpenChange={handleImportDialogChange}>
             <DialogTrigger asChild>
               <Button className="gap-2 btn-responsive" data-testid="btn-importar-datajud">
                 <Download className="w-4 h-4" />
@@ -176,6 +188,26 @@ export default function CasesPage() {
                     <p>
                       A LexAI consultará a API pública do DataJud para extrair metadados, partes, classe e últimas movimentações automaticamente.
                     </p>
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
+                    <p className="font-medium">Termo de Uso da API Pública do DataJud (CNJ)</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>O uso da API implica aceitação integral do termo e responsabilidade sobre o uso das informações.</li>
+                      <li>Uso permitido apenas para fins legais, não comerciais e autorizados.</li>
+                      <li>O CNJ não garante precisão, integridade ou atualidade dos dados.</li>
+                      <li>É proibido modificar, distribuir, vender ou explorar comercialmente a API ou dados derivados.</li>
+                      <li>Ao publicar estudos ou relatórios derivados, o usuário deve dar ciência ao CNJ.</li>
+                    </ul>
+                    <label className="flex items-start gap-2">
+                      <Checkbox
+                        checked={datajudTermsAccepted}
+                        onCheckedChange={(checked) => setDatajudTermsAccepted(checked === true)}
+                        aria-label="Aceito o termo de uso do DataJud"
+                      />
+                      <span className="text-sm">
+                        Li e aceito o Termo de Uso da API Pública do DataJud.
+                      </span>
+                    </label>
                   </div>
                 </div>
               )}
@@ -236,7 +268,7 @@ export default function CasesPage() {
 
               <DialogFooter>
                 {importStep === "input" && (
-                  <Button onClick={handleImport} disabled={!importNumber.trim() || datajudSearch.isPending}>
+                  <Button onClick={handleImport} disabled={!importNumber.trim() || datajudSearch.isPending || !datajudTermsAccepted}>
                     {datajudSearch.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Consultar DataJud
                   </Button>
